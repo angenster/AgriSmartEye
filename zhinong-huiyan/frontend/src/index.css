@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+  .btn-primary {
+    @apply bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors;
+  }
+  .stat-value {
+    @apply text-3xl font-bold text-gray-900;
+  }
+  .stat-label {
+    @apply text-sm text-gray-500 mt-1;
+  }
+}
