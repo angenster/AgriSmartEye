@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from schemas import UserCreate, User, Token
+# schemas.User 与 models.User 同名：必须以别名导入，否则会把上面的 ORM 类覆盖成
+# Pydantic 模型，db.query(User) 随即抛 sqlalchemy ArgumentError（注册/登录全线 500）
+from schemas import UserCreate, User as UserSchema, Token
 
 router = APIRouter()
 
@@ -60,7 +62,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
-@router.post("/register", response_model=User)
+@router.post("/register", response_model=UserSchema)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     """用户注册"""
     db_user = db.query(User).filter(
@@ -99,7 +101,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.get("/me", response_model=User)
+@router.get("/me", response_model=UserSchema)
 def get_me(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
     return current_user

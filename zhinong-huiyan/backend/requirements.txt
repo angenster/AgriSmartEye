@@ -7,15 +7,34 @@ pydantic==2.5.3
 pydantic-settings==2.1.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+# passlib 1.7.4 已停止维护，其 bcrypt 后端自检会传入 >72 字节的密码；
+# bcrypt>=4.1 对此改为抛 ValueError（不再截断），会导致注册/登录全部 500。
+# 必须钉在 4.0.x，否则 [bcrypt] extra 会解析到不兼容的新版本。
+bcrypt==4.0.1
 python-multipart==0.0.6
 redis==5.0.1
 celery==5.3.6
-pillow==10.2.0
-numpy==1.26.3
-torch==2.1.2
-torchvision==0.16.2
-onnx==1.15.0
-onnxruntime==1.16.3
+
+# ---- 模型推理栈 ----
+# 注意：torch/torchvision 需从 CPU 源安装，否则 PyPI 默认给 CUDA 版（约 2.4GB）：
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# 这几个版本必须同批升级：旧的 torch 2.1.2 无法与新版 transformers 共存
+# （transformers 需要 torch.utils._pytree.register_pytree_node，2.1.2 尚无此 API）。
+pillow==12.3.0
+numpy==2.4.6
+torch==2.14.1
+torchvision==0.29.1
+onnx==1.23.2
+onnxruntime==1.31.0
+
+# ---- RAG 检索栈 ----
+# sentence-transformers 3.0.1 是最后一个能配合当前 torch 版本工作的版本区间内的选择。
+# sqlite-vec 提供向量索引；jieba 用于中文分词 —— FTS5 内置的 unicode61/trigram
+# 对中文基本不可用（实测 unicode61 下"炭疽病"命中 0 条），必须先切词再入索引。
+sentence-transformers==3.0.1
+sqlite-vec==0.1.9
+jieba==0.42.1
+
 python-dotenv==1.0.0
 httpx==0.26.0
 pytest==7.4.4

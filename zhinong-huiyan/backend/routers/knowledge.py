@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import PestInfo
-from schemas import PestInfoCreate, PestInfo
+# schemas.PestInfo 与 models.PestInfo 同名：必须别名导入，否则 ORM 类被覆盖，
+# db.query(PestInfo) 会抛 sqlalchemy ArgumentError。
+from schemas import PestInfoCreate, PestInfo as PestInfoSchema
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[PestInfo])
+@router.get("/", response_model=List[PestInfoSchema])
 def get_pest_list(
     crop_type: str = None,
     search: str = None,
@@ -36,7 +38,55 @@ def get_pest_list(
     return pests
 
 
-@router.get("/{pest_id}", response_model=PestInfo)
+@router.get("/chunks")
+def list_chunks(
+    search: str = None,
+    crop: str = None,
+    limit: int = 50,
+):
+    """列出 RAG 索引中的知识条目（只读）。
+
+    这才是系统当前实际使用的知识源：pest_info 表是历史遗留的结构化容器，
+    而检索走的是 knowledge_chunks。此路由必须定义在 /{pest_id} 之前，
+    否则 "/chunks" 会被单段路径参数当成 pest_id 解析。
+    """
+    from rag.store import connect, ensure_schema
+
+    conn = connect()
+    try:
+        ensure_schema(conn)
+        sql = "SELECT id, source, ref_id, title, text, metadata_json, created_at FROM knowledge_chunks"
+        clauses, params = [], []
+        if search:
+            clauses.append("(title LIKE ? OR text LIKE ?)")
+            params.extend([f"%{search}%", f"%{search}%"])
+        if crop:
+            clauses.append("title LIKE ?")
+            params.append(f"%{crop}%")
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY id LIMIT ?"
+        params.append(max(1, min(limit, 200)))
+
+        rows = conn.execute(sql, params).fetchall()
+        import json
+        return [
+            {
+                "id": r["id"],
+                "source": r["source"],
+                "ref_id": r["ref_id"],
+                "title": r["title"],
+                "text": r["text"],
+                "metadata": json.loads(r["metadata_json"]) if r["metadata_json"] else {},
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+@router.get("/{pest_id}", response_model=PestInfoSchema)
 def get_pest(
     pest_id: int,
     db: Session = Depends(get_db),
@@ -48,7 +98,7 @@ def get_pest(
     return pest
 
 
-@router.post("/", response_model=PestInfo)
+@router.post("/", response_model=PestInfoSchema)
 def create_pest(
     pest: PestInfoCreate,
     db: Session = Depends(get_db),

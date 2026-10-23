@@ -61,6 +61,9 @@ logs/
 *.sqlite
 *.sqlite3
 
+# 用户上传的检测图像（运行时产物）
+backend/uploads/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -73,6 +76,8 @@ ai-model/checkpoints/
 # Dataset (managed separately)
 ai-model/data/raw/
 ai-model/data/processed/
+# 清单是构建产物，含本机绝对路径，应随数据重新生成而非入库
+ai-model/data/manifests/
 !ai-model/data/.gitkeep
 
 # Environment variables

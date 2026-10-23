@@ -7,14 +7,19 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Field, OperationRecord
-from schemas import FieldCreate, FieldUpdate, Field, OperationRecordCreate, OperationRecord
+# schemas 与 models 同名（Field / OperationRecord），必须别名导入，
+# 否则 ORM 类被 pydantic 模型覆盖，db.query(Field) 直接抛 ArgumentError。
+from schemas import (
+    FieldCreate, FieldUpdate, Field as FieldSchema,
+    OperationRecordCreate, OperationRecord as OperationRecordSchema,
+)
 from routers.auth import get_current_user
 from models import User as UserModel
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[Field])
+@router.get("/", response_model=List[FieldSchema])
 def get_fields(
     skip: int = 0,
     limit: int = 100,
@@ -28,7 +33,7 @@ def get_fields(
     return fields
 
 
-@router.post("/", response_model=Field)
+@router.post("/", response_model=FieldSchema)
 def create_field(
     field: FieldCreate,
     db: Session = Depends(get_db),
@@ -42,7 +47,7 @@ def create_field(
     return db_field
 
 
-@router.get("/{field_id}", response_model=Field)
+@router.get("/{field_id}", response_model=FieldSchema)
 def get_field(
     field_id: int,
     db: Session = Depends(get_db),
@@ -58,7 +63,7 @@ def get_field(
     return field
 
 
-@router.put("/{field_id}", response_model=Field)
+@router.put("/{field_id}", response_model=FieldSchema)
 def update_field(
     field_id: int,
     field_update: FieldUpdate,
@@ -100,7 +105,7 @@ def delete_field(
     return {"success": True, "message": "田块已删除"}
 
 
-@router.post("/{field_id}/operations", response_model=OperationRecord)
+@router.post("/{field_id}/operations", response_model=OperationRecordSchema)
 def create_operation(
     field_id: int,
     operation: OperationRecordCreate,
@@ -127,7 +132,7 @@ def create_operation(
     return db_operation
 
 
-@router.get("/{field_id}/operations", response_model=List[OperationRecord])
+@router.get("/{field_id}/operations", response_model=List[OperationRecordSchema])
 def get_operations(
     field_id: int,
     db: Session = Depends(get_db),

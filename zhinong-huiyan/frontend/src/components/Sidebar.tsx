@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   DashboardOutlined,
   ScanOutlined,
@@ -7,11 +7,16 @@ import {
   BarChartOutlined,
   BookOutlined,
   SettingOutlined,
+  AuditOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons'
+import { Button } from 'antd'
+import { useAuth } from '../store/auth'
 
 const menuItems = [
   { path: '/', icon: <DashboardOutlined />, label: '数据看板' },
   { path: '/detection', icon: <ScanOutlined />, label: 'AI病虫害识别' },
+  { path: '/review', icon: <AuditOutlined />, label: '数据飞轮复核' },
   { path: '/fields', icon: <FieldTimeOutlined />, label: '农事管理' },
   { path: '/drone', icon: <ControlOutlined />, label: '无人机作业' },
   { path: '/analysis', icon: <BarChartOutlined />, label: '数据分析' },
@@ -21,6 +26,8 @@ const menuItems = [
 
 export default function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 fixed left-0 top-0 h-full z-20 flex flex-col">
@@ -54,13 +61,29 @@ export default function Sidebar() {
           )
         })}
       </nav>
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 space-y-3">
         <div className="bg-primary-50 rounded-lg p-3">
           <p className="text-xs text-primary-700 font-medium mb-1">系统状态</p>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-xs text-gray-600">边缘设备在线</span>
           </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-gray-600 truncate">
+            {user?.full_name || user?.username || '未登录'}
+          </span>
+          <Button
+            type="text"
+            size="small"
+            icon={<LogoutOutlined />}
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+            }}
+          >
+            退出
+          </Button>
         </div>
       </div>
     </aside>

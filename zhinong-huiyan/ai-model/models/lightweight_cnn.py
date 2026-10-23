@@ -2,11 +2,18 @@
 智农慧眼 - 轻量化CNN模型架构
 基于MobileNetV3 + 自定义分类头，专为热带作物病虫害识别设计
 """
+import sys
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
 from typing import List
+
+# 标签维度从 labels.py 派生，避免这里写死数字后与标签表悄悄错位
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from labels import CROP_CLASSES, DISEASE_CLASSES  # noqa: E402
 
 
 class SEBlock(nn.Module):
@@ -108,8 +115,8 @@ class TropicalPestNet(nn.Module):
     """
     def __init__(
         self,
-        num_classes: int = 42,
-        num_crops: int = 15,
+        num_classes: int = len(DISEASE_CLASSES),
+        num_crops: int = len(CROP_CLASSES),
         pretrained: bool = True,
         dropout: float = 0.3,
     ):
@@ -196,7 +203,7 @@ class TropicalPestNet(nn.Module):
 
 def test_model():
     """测试模型"""
-    model = TropicalPestNet(num_classes=42, num_crops=15)
+    model = TropicalPestNet()
     x = torch.randn(2, 3, 224, 224)
     outputs = model(x)
 
@@ -204,9 +211,9 @@ def test_model():
     print("智农慧眼 - TropicalPestNet 模型测试")
     print("=" * 60)
     print(f"输入形状: {x.shape}")
-    print(f"作物输出: {outputs['crop'].shape} (15种作物)")
-    print(f"病虫害输出: {outputs['disease'].shape} (42种病虫害)")
-    print(f"严重程度输出: {outputs['severity'].shape} (3个等级)")
+    print(f"作物输出: {outputs['crop'].shape} ({len(CROP_CLASSES)}种作物)")
+    print(f"病虫害输出: {outputs['disease'].shape} ({len(DISEASE_CLASSES)}种病虫害)")
+    print(f"严重程度输出: {outputs['severity'].shape}")
     print(f"特征维度: {outputs['features'].shape}")
     print("-" * 60)
 

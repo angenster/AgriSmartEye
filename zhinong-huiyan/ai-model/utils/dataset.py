@@ -3,6 +3,7 @@
 支持数据增强、类别均衡、多尺度训练
 """
 import os
+import sys
 import json
 import random
 from pathlib import Path
@@ -17,37 +18,9 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
 
-# 作物种类映射
-CROP_CLASSES = [
-    "芒果", "荔枝", "槟榔", "香蕉", "菠萝",
-    "火龙果", "木瓜", "椰子", "橡胶", "胡椒",
-    "咖啡", "茶叶", "甘蔗", "木薯", "剑麻",
-]
-
-# 病虫害种类映射
-DISEASE_CLASSES = [
-    # 芒果 (6种)
-    "芒果炭疽病", "芒果白粉病", "芒果细菌性角斑病", "芒果介壳虫", "芒果蓟马", "芒果瘿螨",
-    # 荔枝 (5种)
-    "荔枝霜疫霉病", "荔枝炭疽病", "荔枝蝽", "荔枝蒂蛀虫", "荔枝瘿螨",
-    # 槟榔 (5种)
-    "槟榔黄化病", "槟榔炭疽病", "槟榔细菌性条斑病", "槟榔红脉穗螟", "槟榔蚧壳虫",
-    # 香蕉 (5种)
-    "香蕉枯萎病", "香蕉叶斑病", "香蕉黑星病", "香蕉象甲", "香蕉蚜虫",
-    # 菠萝 (4种)
-    "菠萝心腐病", "菠萝黑腐病", "菠萝粉蚧", "菠萝红蜘蛛",
-    # 火龙果 (4种)
-    "火龙果溃疡病", "火龙果炭疽病", "火龙果蜗牛", "火龙果介壳虫",
-    # 木瓜 (4种)
-    "木瓜花叶病", "木瓜炭疽病", "木瓜红蜘蛛", "木瓜介壳虫",
-    # 其他 (9种)
-    "椰子红环腐病", "橡胶白粉病", "胡椒瘟病", "咖啡锈病",
-    "茶叶茶饼病", "甘蔗赤腐病", "木薯细菌性枯萎病", "剑斑马纹病",
-    "健康",  # 无病虫害
-]
-
-# 严重程度
-SEVERITY_CLASSES = ["轻度", "中度", "重度"]
+# 标签定义集中在 ai-model/labels.py，训练与推理共用同一份，避免两边漂移
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from labels import CROP_CLASSES, DISEASE_CLASSES, SEVERITY_CLASSES  # noqa: E402
 
 
 class TropicalCropDataset(Dataset):

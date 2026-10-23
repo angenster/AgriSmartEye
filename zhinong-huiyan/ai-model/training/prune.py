@@ -170,7 +170,7 @@ def main():
 
     print("加载模型...")
     checkpoint = torch.load(args.model, map_location="cpu")
-    model = TropicalPestNet(num_classes=42, num_crops=15)
+    model = TropicalPestNet()
     model.load_state_dict(checkpoint.get("model", checkpoint))
 
     print("开始剪枝...")

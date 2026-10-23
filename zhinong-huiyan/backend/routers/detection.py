@@ -1,5 +1,10 @@
 """
 病虫害识别路由
+
+推理由 services.model_service 提供的进程内单例完成（真实 CNN 前向），
+不再使用任何硬编码结果。治疗建议字段（recommendation / medicine / dosage）
+在 P2 的 RAG 落地前一律留空 —— 按项目红线，药品与剂量只能来自检索到的知识片段，
+不允许凭空生成。
 """
 import os
 import time
@@ -10,39 +15,61 @@ from typing import List
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from PIL import Image
+from sqlalchemy import func
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from database import get_db
 from models import DetectionRecord
 from schemas import Detection, DetectionResponse, DetectionRequest
 from routers.auth import get_current_user
 from models import User
+from services.model_service import model_service, ModelNotAvailable
 
 router = APIRouter()
 
-# 模拟AI推理结果（实际生产环境加载真实模型）
-MOCK_DETECTIONS = [
-    {
-        "crop_type": "芒果",
-        "disease_name": "炭疽病",
-        "confidence": 97.8,
-        "severity": "中度",
-        "bbox": [120, 80, 280, 220],
-        "recommendation": "及时喷洒咪鲜胺或苯醚甲环唑，连续防治2-3次，间隔7-10天",
-        "medicine": "45%咪鲜胺水乳剂",
-        "dosage": "稀释1500-2000倍液",
-    },
-    {
-        "crop_type": "芒果",
-        "disease_name": "介壳虫",
-        "confidence": 94.2,
-        "severity": "轻度",
-        "bbox": [320, 150, 420, 280],
-        "recommendation": "在若虫盛发期喷施噻嗪酮或螺虫乙酯，注意轮换用药",
-        "medicine": "25%噻嗪酮可湿性粉剂",
-        "dosage": "稀释1000-1500倍液",
-    },
-]
+
+def _save_upload(contents: bytes, ext: str) -> str:
+    """把上传内容落盘到 uploads/detections，返回相对路径"""
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    upload_dir = "uploads/detections"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, unique_name)
+    with open(file_path, "wb") as f:
+        f.write(contents)
+    return file_path
+
+
+def _build_record(result: dict, image_path: str, user_id: int, field_id=None) -> DetectionRecord:
+    """把推理输出映射为 DetectionRecord。
+
+    注意 bbox 恒为 None：TropicalPestNet 是图像级分类器，没有检测头，
+    因此不产生目标框。README 与 mock 数据中曾出现的 bbox 是虚构的。
+    """
+    return DetectionRecord(
+        user_id=user_id,
+        field_id=field_id,
+        image_path=image_path,
+        crop_type=result["crop"]["name"],
+        disease_name=result["disease"]["name"],
+        confidence=result["disease"]["confidence"],
+        severity=result["severity"]["name"],
+        bbox=None,
+        recommendation=None,
+        medicine=None,
+        dosage=None,
+        model_version=model_service.model_version,
+        inference_time=result["inference_time_ms"],
+    )
+
+
+def _low_confidence_note(confidence: float, threshold: float) -> str:
+    """置信度低于阈值时的提示语。分类器总会给出一个答案，
+    因此这里不静默丢弃结果，而是明确标注供下游（P1 的 Agent）决定是否升级 VLM。"""
+    return (
+        f"（注意：病害置信度 {confidence:.2f} 低于阈值 {threshold:.2f}，"
+        "结果仅供参考，建议人工复核或升级多模态模型）"
+    )
 
 
 @router.post("/upload", response_model=DetectionResponse)
@@ -50,56 +77,36 @@ async def detect_from_upload(
     file: UploadFile = File(...),
     crop_type: str = None,
     confidence_threshold: float = 0.85,
+    field_id: int = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """上传图像进行病虫害识别"""
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="请上传有效的图像文件")
 
-    # 保存上传文件
-    file_ext = os.path.splitext(file.filename)[1]
-    unique_name = f"{uuid.uuid4().hex}{file_ext}"
-    upload_dir = "uploads/detections"
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, unique_name)
-
+    file_ext = os.path.splitext(file.filename or "")[1] or ".jpg"
     contents = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(contents)
+    file_path = _save_upload(contents, file_ext)
 
-    # 模拟AI推理
-    start_time = time.time()
-    inference_time = (time.time() - start_time) * 1000  # ms
+    # 推理是 CPU 密集的阻塞调用，丢到线程池，避免堵住事件循环
+    try:
+        result = await run_in_threadpool(model_service.predict, file_path)
+    except ModelNotAvailable as e:
+        raise HTTPException(status_code=503, detail=f"推理服务不可用: {e}")
 
-    results = []
-    for detection_data in MOCK_DETECTIONS:
-        if detection_data["confidence"] >= confidence_threshold * 100:
-            record = DetectionRecord(
-                user_id=current_user.id,
-                image_path=file_path,
-                crop_type=crop_type or detection_data["crop_type"],
-                disease_name=detection_data["disease_name"],
-                confidence=detection_data["confidence"],
-                severity=detection_data["severity"],
-                bbox=detection_data["bbox"],
-                recommendation=detection_data["recommendation"],
-                medicine=detection_data["medicine"],
-                dosage=detection_data["dosage"],
-                inference_time=inference_time,
-            )
-            db.add(record)
-            results.append(record)
-
+    record = _build_record(result, file_path, current_user.id, field_id)
+    db.add(record)
     db.commit()
-    for r in results:
-        db.refresh(r)
+    db.refresh(record)
 
-    return DetectionResponse(
-        success=True,
-        data=results,
-        message=f"成功识别 {len(results)} 处病虫害，推理耗时 {inference_time:.1f}ms",
-    )
+    message = f"识别完成，耗时 {result['inference_time_ms']:.1f}ms"
+    if model_service.is_demo:
+        message = "[DEMO 未训练模型] " + message
+    if record.confidence < confidence_threshold:
+        message += _low_confidence_note(record.confidence, confidence_threshold)
+
+    return DetectionResponse(success=True, data=[record], message=message)
 
 
 @router.post("/base64", response_model=DetectionResponse)
@@ -109,49 +116,36 @@ async def detect_from_base64(
     current_user: User = Depends(get_current_user),
 ):
     """Base64编码图像识别"""
+    if not request.image_base64:
+        raise HTTPException(status_code=400, detail="缺少 image_base64 字段")
+
     try:
-        image_data = base64.b64decode(request.image_base64)
-        image = Image.open(BytesIO(image_data))
-
-        # 保存临时文件
-        unique_name = f"{uuid.uuid4().hex}.jpg"
-        upload_dir = "uploads/detections"
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, unique_name)
-        image.save(file_path)
-
-        # 模拟推理
-        start_time = time.time()
-        inference_time = (time.time() - start_time) * 1000
-
-        results = []
-        for detection_data in MOCK_DETECTIONS:
-            if detection_data["confidence"] >= request.confidence_threshold * 100:
-                record = DetectionRecord(
-                    user_id=current_user.id,
-                    image_path=file_path,
-                    crop_type=request.crop_type or detection_data["crop_type"],
-                    disease_name=detection_data["disease_name"],
-                    confidence=detection_data["confidence"],
-                    severity=detection_data["severity"],
-                    bbox=detection_data["bbox"],
-                    recommendation=detection_data["recommendation"],
-                    medicine=detection_data["medicine"],
-                    dosage=detection_data["dosage"],
-                    inference_time=inference_time,
-                )
-                db.add(record)
-                results.append(record)
-
-        db.commit()
-        return DetectionResponse(
-            success=True,
-            data=results,
-            message=f"识别完成，耗时 {inference_time:.1f}ms",
-        )
-
+        image = Image.open(BytesIO(base64.b64decode(request.image_base64))).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"图像解析失败: {str(e)}")
+
+    # 先落盘再推理，保证响应里的 image_path 可回看
+    buf = BytesIO()
+    image.save(buf, format="JPEG")
+    file_path = _save_upload(buf.getvalue(), ".jpg")
+
+    try:
+        result = await run_in_threadpool(model_service.predict, file_path)
+    except ModelNotAvailable as e:
+        raise HTTPException(status_code=503, detail=f"推理服务不可用: {e}")
+
+    record = _build_record(result, file_path, current_user.id)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    message = f"识别完成，耗时 {result['inference_time_ms']:.1f}ms"
+    if model_service.is_demo:
+        message = "[DEMO 未训练模型] " + message
+    if record.confidence < request.confidence_threshold:
+        message += _low_confidence_note(record.confidence, request.confidence_threshold)
+
+    return DetectionResponse(success=True, data=[record], message=message)
 
 
 @router.get("/history", response_model=List[Detection])
@@ -183,16 +177,17 @@ async def get_detection_stats(
 
     avg_confidence = db.query(DetectionRecord).filter(
         DetectionRecord.user_id == current_user.id
-    ).with_entities(db.func.avg(DetectionRecord.confidence)).scalar() or 0
+    ).with_entities(func.avg(DetectionRecord.confidence)).scalar() or 0
 
     today_count = db.query(DetectionRecord).filter(
         DetectionRecord.user_id == current_user.id,
-        db.func.date(DetectionRecord.created_at) == db.func.current_date(),
+        func.date(DetectionRecord.created_at) == func.current_date(),
     ).count()
 
     return {
         "total_detections": total,
         "today_count": today_count,
-        "avg_confidence": round(avg_confidence, 2),
-        "model_version": "v1.0",
+        "avg_confidence": round(avg_confidence, 4),
+        "model_version": model_service.model_version,
+        "is_demo": model_service.is_demo,
     }

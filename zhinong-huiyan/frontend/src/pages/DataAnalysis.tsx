@@ -1,178 +1,147 @@
-import { useEffect, useRef } from 'react'
-import { Card, Table, Tag } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { Card, Empty, Spin, Table, Tag, message } from 'antd'
 import * as echarts from 'echarts'
-
-const costData = [
-  { month: '1月', traditional: 45000, smart: 32000, saved: 28.9 },
-  { month: '2月', traditional: 42000, smart: 29000, saved: 31.0 },
-  { month: '3月', traditional: 48000, smart: 31000, saved: 35.4 },
-  { month: '4月', traditional: 52000, smart: 33000, saved: 36.5 },
-  { month: '5月', traditional: 55000, smart: 35000, saved: 36.4 },
-  { month: '6月', traditional: 50000, smart: 30000, saved: 40.0 },
-]
-
-const sprayRecords = [
-  { id: 1, field: 'A-03', crop: '芒果', area: 15.6, traditional: 234, actual: 156, saved: 33.3, date: '2024-06-01' },
-  { id: 2, field: 'B-07', crop: '荔枝', area: 12.3, traditional: 185, actual: 126, saved: 31.9, date: '2024-06-01' },
-  { id: 3, field: 'C-12', crop: '槟榔', area: 28.5, traditional: 342, actual: 228, saved: 33.3, date: '2024-05-31' },
-  { id: 4, field: 'A-05', crop: '香蕉', area: 20.0, traditional: 280, actual: 182, saved: 35.0, date: '2024-05-31' },
-]
+import {
+  fetchAnalysisSummary, fetchCostComparison, fetchDiseaseDistribution, fetchSprayRecords,
+} from '../api/endpoints'
+import { describeError } from '../api/client'
+import type { AnalysisSummary, CostComparison, DiseaseDistribution, SprayRecord } from '../api/types'
 
 const columns = [
-  { title: '田块编号', dataIndex: 'field', key: 'field' },
-  { title: '作物', dataIndex: 'crop', key: 'crop' },
+  { title: '田块 ID', dataIndex: 'field_id', key: 'field_id' },
+  { title: '无人机', dataIndex: 'drone_id', key: 'drone_id' },
   { title: '面积(亩)', dataIndex: 'area', key: 'area' },
-  { title: '传统用药(L)', dataIndex: 'traditional', key: 'traditional' },
-  { title: '实际用药(L)', dataIndex: 'actual', key: 'actual' },
+  { title: '传统用药(L)', dataIndex: 'traditional_usage', key: 'traditional_usage' },
+  { title: '实际用药(L)', dataIndex: 'actual_usage', key: 'actual_usage' },
   {
     title: '节省比例',
-    dataIndex: 'saved',
-    key: 'saved',
-    render: (val: number) => (
-      <Tag color="green">{val.toFixed(1)}%</Tag>
-    ),
+    dataIndex: 'saved_percentage',
+    key: 'saved_percentage',
+    render: (v: number) => <Tag color="green">{v.toFixed(1)}%</Tag>,
   },
   { title: '作业日期', dataIndex: 'date', key: 'date' },
 ]
 
 export default function DataAnalysis() {
   const barRef = useRef<HTMLDivElement>(null)
-  const radarRef = useRef<HTMLDivElement>(null)
-  const lineRef = useRef<HTMLDivElement>(null)
+  const pieRef = useRef<HTMLDivElement>(null)
+  const [summary, setSummary] = useState<AnalysisSummary | null>(null)
+  const [cost, setCost] = useState<CostComparison[]>([])
+  const [records, setRecords] = useState<SprayRecord[]>([])
+  const [distribution, setDistribution] = useState<DiseaseDistribution[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (barRef.current) {
-      const chart = echarts.init(barRef.current)
-      chart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['传统施药', '智农慧眼'], bottom: 0 },
-        grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: costData.map(d => d.month) },
-        yAxis: { type: 'value', name: '用药量(L)' },
-        series: [
-          {
-            name: '传统施药',
-            type: 'bar',
-            data: costData.map(d => d.traditional),
-            itemStyle: { color: '#9ca3af' },
-          },
-          {
-            name: '智农慧眼',
-            type: 'bar',
-            data: costData.map(d => d.smart),
-            itemStyle: { color: '#16a34a' },
-          },
-        ],
-      })
-    }
-
-    if (radarRef.current) {
-      const chart = echarts.init(radarRef.current)
-      chart.setOption({
-        tooltip: {},
-        legend: { data: ['传统方式', '智农慧眼'], bottom: 0 },
-        radar: {
-          indicator: [
-            { name: '识别准确率', max: 100 },
-            { name: '施药精准度', max: 100 },
-            { name: '作业效率', max: 100 },
-            { name: '成本节约', max: 100 },
-            { name: '环保指数', max: 100 },
-            { name: '操作便捷性', max: 100 },
-          ],
-          radius: '65%',
-        },
-        series: [{
-          type: 'radar',
-          data: [
-            {
-              value: [60, 40, 50, 30, 35, 45],
-              name: '传统方式',
-              areaStyle: { color: 'rgba(156, 163, 175, 0.3)' },
-              itemStyle: { color: '#9ca3af' },
-            },
-            {
-              value: [97, 92, 88, 85, 90, 82],
-              name: '智农慧眼',
-              areaStyle: { color: 'rgba(22, 163, 74, 0.3)' },
-              itemStyle: { color: '#16a34a' },
-            },
-          ],
-        }],
-      })
-    }
-
-    if (lineRef.current) {
-      const chart = echarts.init(lineRef.current)
-      chart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['节省农药(L)', '节约成本(元)'], bottom: 0 },
-        grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
-        xAxis: { type: 'category', data: costData.map(d => d.month) },
-        yAxis: [
-          { type: 'value', name: '农药(L)', position: 'left' },
-          { type: 'value', name: '成本(元)', position: 'right' },
-        ],
-        series: [
-          {
-            name: '节省农药(L)',
-            type: 'bar',
-            data: costData.map(d => d.traditional - d.smart),
-            itemStyle: { color: '#22c55e' },
-          },
-          {
-            name: '节约成本(元)',
-            type: 'line',
-            yAxisIndex: 1,
-            data: costData.map(d => (d.traditional - d.smart) * 35),
-            itemStyle: { color: '#f59e0b' },
-            lineStyle: { width: 3 },
-          },
-        ],
-      })
-    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [s, c, r, d] = await Promise.all([
+          fetchAnalysisSummary(),
+          fetchCostComparison(),
+          fetchSprayRecords(50),
+          fetchDiseaseDistribution(),
+        ])
+        if (cancelled) return
+        setSummary(s); setCost(c); setRecords(r); setDistribution(d)
+      } catch (e) {
+        message.error(describeError(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (!barRef.current) return
+    const chart = echarts.init(barRef.current)
+    chart.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { data: ['传统施药', '智农慧眼'], bottom: 0 },
+      grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+      xAxis: { type: 'category', data: cost.map((d) => d.month) },
+      yAxis: { type: 'value', name: '用药量(L)' },
+      series: [
+        { name: '传统施药', type: 'bar', data: cost.map((d) => d.traditional), itemStyle: { color: '#9ca3af' } },
+        { name: '智农慧眼', type: 'bar', data: cost.map((d) => d.smart), itemStyle: { color: '#16a34a' } },
+      ],
+    })
+    const onResize = () => chart.resize()
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); chart.dispose() }
+  }, [cost])
+
+  useEffect(() => {
+    if (!pieRef.current) return
+    const chart = echarts.init(pieRef.current)
+    const colors = ['#ef4444', '#f59e0b', '#eab308', '#84cc16', '#10b981', '#3b82f6']
+    chart.setOption({
+      tooltip: { trigger: 'item' },
+      legend: { bottom: 0, left: 'center', icon: 'circle', itemWidth: 10, itemHeight: 10 },
+      series: [{
+        type: 'pie', radius: ['35%', '55%'], center: ['50%', '45%'],
+        itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+        label: { show: false },
+        data: distribution.length
+          ? distribution.map((d, i) => ({ ...d, itemStyle: { color: colors[i % colors.length] } }))
+          : [{ value: 1, name: '暂无数据', itemStyle: { color: '#e5e7eb' } }],
+      }],
+    })
+    const onResize = () => chart.resize()
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); chart.dispose() }
+  }, [distribution])
+
+  const cards = [
+    { title: '累计识别', value: summary?.total_detections ?? 0, unit: '次' },
+    { title: '施药面积', value: summary?.total_sprayed_area ?? 0, unit: '亩' },
+    { title: '节约农药', value: summary?.total_medicine_saved ?? 0, unit: 'L' },
+    { title: '平均置信度', value: `${((summary?.avg_confidence ?? 0) * 100).toFixed(1)}%`, unit: '' },
+  ]
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900">数据分析</h2>
-        <p className="text-gray-500 mt-1">防治效果量化分析，精准评估经济效益与环保价值</p>
+        <p className="text-gray-500 mt-1">基于真实识别与施药记录的成本与效果分析</p>
       </div>
 
-      {/* 核心指标 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: '累计节药量', value: '2,456 L', change: '+35.2%', color: 'text-green-600' },
-          { label: '累计节约成本', value: '¥85,960', change: '+40.1%', color: 'text-green-600' },
-          { label: '平均识别准确率', value: '97.5%', change: '+2.3%', color: 'text-blue-600' },
-          { label: '农药残留降低', value: '52.8%', change: '-12.5%', color: 'text-green-600' },
-        ].map((item) => (
-          <Card key={item.label} className="shadow-sm">
-            <p className="text-sm text-gray-500">{item.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{item.value}</p>
-            <p className={`text-sm mt-1 ${item.color}`}>{item.change} 较去年同期</p>
-          </Card>
-        ))}
-      </div>
+      <Spin spinning={loading}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {cards.map((c) => (
+            <div key={c.title} className="card">
+              <p className="stat-label">{c.title}</p>
+              <p className="stat-value mt-2">
+                {c.value}<span className="text-sm text-gray-400 ml-1">{c.unit}</span>
+              </p>
+            </div>
+          ))}
+        </div>
+      </Spin>
 
-      {/* 图表 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="施药量对比分析" className="shadow-sm">
-          <div ref={barRef} style={{ height: '300px' }} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card title="施药量对比" className="lg:col-span-2">
+          {cost.some((d) => d.traditional > 0 || d.smart > 0) ? (
+            <div ref={barRef} style={{ height: 320 }} />
+          ) : (
+            <Empty description="暂无施药记录" />
+          )}
         </Card>
-        <Card title="综合效能雷达图" className="shadow-sm">
-          <div ref={radarRef} style={{ height: '300px' }} />
+        <Card title="病虫害类型分布">
+          <div ref={pieRef} style={{ height: 320 }} />
         </Card>
       </div>
 
-      <Card title="经济效益分析" className="shadow-sm">
-        <div ref={lineRef} style={{ height: '300px' }} />
-      </Card>
-
-      {/* 详细记录 */}
-      <Card title="施药作业详细记录" className="shadow-sm">
-        <Table dataSource={sprayRecords} columns={columns} pagination={false} />
+      <Card title="施药记录">
+        <Table
+          rowKey="id"
+          size="small"
+          dataSource={records}
+          columns={columns}
+          pagination={{ pageSize: 8 }}
+          scroll={{ x: 760 }}
+          locale={{ emptyText: <Empty description="暂无施药记录" /> }}
+        />
       </Card>
     </div>
   )
