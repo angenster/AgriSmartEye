@@ -7,8 +7,8 @@ Agent 工具层 —— Agent 唯一的能力出口，白名单制。
       {"ok": False, "error": {"code": str, "message": str}}
 
   这样 Agent（或规则仲裁）总能明确看到某一步失败的原因，并决定重试或降级。
-  数据源尚未就绪的能力（RAG 索引、农药登记库、VLM 密钥）返回带明确 code 的
-  错误对象，而不是伪装成空结果 —— 否则会把"没查"误当成"查过且没有"。
+  数据源尚未就绪的能力（RAG 索引、VLM 密钥）返回带明确 code 的错误对象，
+  而不是伪装成空结果 —— 否则会把"没查"误当成"查过且没有"。
 """
 import base64
 import json
@@ -352,16 +352,48 @@ def _tool_get_field_context(ctx: ToolContext, field_id: Optional[int] = None) ->
 
 
 def _tool_query_pesticide(ctx: ToolContext, disease_name: str, crop_type: Optional[str] = None) -> Dict:
-    """查询登记农药。数据源（农药登记信息）尚未整理入库，故明确报不可用。
+    """查询农药登记库。
 
     红线 #3：药品名称与剂量只能来自检索结果，禁止模型生成。
-    因此在数据源就绪前，本工具宁可失败也不返回任何内容。
+    未校审条目只给药品名与登记信息，dosage 恒为 None——剂量错误比没有建议更危险。
     """
-    raise ToolError(
-        "pesticide_registry_unavailable",
-        "农药登记库尚未建立（P2 落地）。按项目红线，药品与剂量不得由模型生成，"
-        "故本次不返回任何用药建议。",
-    )
+    from pesticide.registry import query_entries
+
+    rows = query_entries(ctx.db, disease_name, crop_type)
+    if not rows:
+        raise ToolError(
+            "pesticide_not_found",
+            f"农药登记库中没有「{disease_name}」的条目，本次不提供用药建议。",
+        )
+
+    # 有已校审条目时只用已校审的，避免把未校审样例混进用药方案
+    verified_rows = [r for r in rows if r.verified]
+    use = verified_rows or rows
+    pesticides = [
+        {
+            "id": r.id,
+            "name": r.product_name,
+            "active_ingredient": r.active_ingredient,
+            "formulation": r.formulation,
+            "dosage": r.dosage if r.verified else None,
+            "safe_interval_days": r.safe_interval_days if r.verified else None,
+            "registration_no": r.registration_no,
+            "manufacturer": r.manufacturer,
+            "verified": bool(r.verified),
+            "source": r.source,
+            "source_ref": f"pesticide_registry.id={r.id}",
+        }
+        for r in use
+    ]
+    return ok({
+        "pesticides": pesticides,
+        "has_verified": bool(verified_rows),
+        "note": (
+            "以下条目尚未经植保人员校审，只提供药品名称与登记信息，不提供剂量。"
+            "正式用药前必须在农药登记库核对并遵循当地农技部门指导。"
+            if not verified_rows else None
+        ),
+    })
 
 
 def _tool_request_human_review(ctx: ToolContext, reason: str, report_draft: Optional[Dict] = None) -> Dict:

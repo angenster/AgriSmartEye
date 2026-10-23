@@ -5,7 +5,7 @@ import {
 } from 'antd'
 import { CameraOutlined, EyeOutlined, FileImageOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd/es/upload/interface'
-import { detectUpload, diagnose, fetchDetectionHistory, fetchDetectionStats } from '../api/endpoints'
+import { detectUpload, diagnoseStream, fetchDetectionHistory, fetchDetectionStats } from '../api/endpoints'
 import { describeError } from '../api/client'
 import type { AgentStep, DetectionRecord, DetectionStats, DiagnoseResult, Evidence } from '../api/types'
 
@@ -111,7 +111,26 @@ function ReportView({ result }: { result: DiagnoseResult }) {
         ) : (
           <p className="text-sm text-gray-500">无可用防治措施</p>
         )}
-        {r.treatment.medicines.length === 0 && r.treatment.note && (
+        {r.treatment.medicines.length > 0 && (
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-1 mt-2">
+              登记农药（{r.treatment.medicines.length}）
+            </div>
+            {r.treatment.medicines.map((m, i) => (
+              <div key={i} className="text-xs bg-gray-50 rounded p-2 mb-1">
+                <span className="font-medium">{m.name}</span>
+                <Tag color={m.verified ? 'green' : 'orange'} className="ml-2">
+                  {m.verified ? '已校审' : '未校审'}
+                </Tag>
+                <div className="text-gray-600 mt-1">
+                  {m.dosage ? `剂量：${m.dosage}` : '剂量：需人工核对后提供'}
+                  {m.safe_interval_days != null && ` ｜ 安全间隔期：${m.safe_interval_days} 天`}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {r.treatment.note && (
           <p className="text-xs text-orange-600 mt-2">{r.treatment.note}</p>
         )}
       </div>
@@ -133,6 +152,7 @@ export default function PestDetection() {
   const [analyzing, setAnalyzing] = useState(false)
   const [quickResult, setQuickResult] = useState<DetectionRecord | null>(null)
   const [agentResult, setAgentResult] = useState<DiagnoseResult | null>(null)
+  const [liveSteps, setLiveSteps] = useState<AgentStep[]>([])
   const [history, setHistory] = useState<DetectionRecord[]>([])
   const [stats, setStats] = useState<DetectionStats | null>(null)
 
@@ -154,6 +174,7 @@ export default function PestDetection() {
     setFileList(fileList)
     setQuickResult(null)
     setAgentResult(null)
+    setLiveSteps([])
     if (fileList.length > 0 && fileList[0].originFileObj) {
       setImageUrl(URL.createObjectURL(fileList[0].originFileObj as Blob))
     } else {
@@ -167,6 +188,7 @@ export default function PestDetection() {
     setAnalyzing(true)
     setQuickResult(null)
     setAgentResult(null)
+    setLiveSteps([])
     try {
       if (mode === 'quick') {
         const res = await detectUpload(file)
@@ -177,9 +199,15 @@ export default function PestDetection() {
           message.success(res.message)
         }
       } else {
-        const res = await diagnose(file)
-        setAgentResult(res)
-        message.success(`Agent 诊断完成：${res.status}（${res.steps_used} 步）`)
+        // 流式诊断：每完成一步就追加到时间线，最终报告到达后再整体替换
+        const res = await diagnoseStream(file, undefined, {
+          onStep: (step) => setLiveSteps((prev) => [...prev, step]),
+          onError: (msg) => message.error(msg),
+        })
+        if (res) {
+          setAgentResult(res)
+          message.success(`Agent 诊断完成：${res.status}（${res.steps_used} 步）`)
+        }
       }
       await load()
     } catch (e) {
@@ -350,6 +378,13 @@ export default function PestDetection() {
                 )
               ) : agentResult ? (
                 <ReportView result={agentResult} />
+              ) : mode === 'agent' && liveSteps.length > 0 ? (
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    Agent 实时思考（{liveSteps.length} 步）
+                  </div>
+                  <StepTimeline steps={liveSteps} />
+                </div>
               ) : (
                 <Empty description="Agent 诊断完成后在此显示报告与思考过程" />
               )}

@@ -172,17 +172,20 @@ def run_agent(
     }
 
 
+def serialize_step(record: StepRecord) -> Dict:
+    """单步转成前端渲染时间线用的结构（SSE 与最终结果共用同一份字段）"""
+    return {
+        "step_no": record.step_no,
+        "step_id": record.step_id,
+        "thought": record.thought,
+        "tool_name": record.tool_name,
+        "tool_args": record.tool_args,
+        "ok": bool(record.result.get("ok")),
+        "result": (record.result.get("data") if record.result.get("ok")
+                   else record.result.get("error")),
+    }
+
+
 def _serialize_steps(history: List[StepRecord]) -> List[Dict]:
     """把轨迹转成前端渲染时间线用的结构"""
-    return [
-        {
-            "step_no": r.step_no,
-            "step_id": r.step_id,
-            "thought": r.thought,
-            "tool_name": r.tool_name,
-            "tool_args": r.tool_args,
-            "ok": bool(r.result.get("ok")),
-            "result": r.result.get("data") if r.result.get("ok") else r.result.get("error"),
-        }
-        for r in history
-    ]
+    return [serialize_step(r) for r in history]

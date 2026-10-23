@@ -2,7 +2,10 @@
 SQLAlchemy 数据模型定义
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Enum
+from sqlalchemy import (
+    Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, JSON, Enum,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
@@ -289,3 +292,33 @@ class EvalRun(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     model_version = relationship("ModelVersion", back_populates="eval_runs")
+
+
+class PesticideEntry(Base):
+    """农药登记条目 —— query_pesticide 的唯一数据源。
+
+    红线：药品名称与剂量只能来自这里，禁止模型生成。因此每一行都必须带
+    source 溯源信息；verified=False 的行是未校审样例，工具只返回药品名与
+    登记信息，绝不下发 dosage（剂量错误比没有建议更危险）。
+    """
+    __tablename__ = "pesticide_registry"
+    __table_args__ = (
+        UniqueConstraint("crop_type", "disease_name", "product_name", "formulation",
+                         name="uq_pesticide_entry"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    crop_type = Column(String(50), index=True, nullable=True)
+    disease_name = Column(String(100), index=True, nullable=False)
+    product_name = Column(String(200), nullable=False)
+    active_ingredient = Column(String(200), nullable=True)
+    formulation = Column(String(100), nullable=True)      # 剂型，如 水乳剂
+    dosage = Column(String(200), nullable=True)           # 稀释倍数 / 亩用量
+    safe_interval_days = Column(Integer, nullable=True)   # 安全间隔期
+    registration_no = Column(String(100), nullable=True)  # 农药登记证号
+    manufacturer = Column(String(200), nullable=True)
+    source = Column(String(200), nullable=False)
+    source_url = Column(String(500), nullable=True)
+    verified = Column(Boolean, default=False, nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -27,7 +27,8 @@ _REF_TABLES = {
     "detection_records",
     "pest_info",
     "agent_steps",
-    "knowledge_chunks",   # P2 落地后启用
+    "knowledge_chunks",
+    "pesticide_registry",
 }
 
 
@@ -102,6 +103,23 @@ def build_report(
     for chunk in (knowledge or {}).get("chunks", []):
         evidence.append(_rag_evidence(chunk))
 
+    # 用药证据：每条登记条目都可回查 pesticide_registry.id，
+    # 与"药品只能来自检索"的红线一一对应。
+    seen_pesticide_ids = set()
+    for item in (pesticides or {}).get("pesticides", []):
+        pid = item.get("id")
+        if pid is None or pid in seen_pesticide_ids:
+            continue
+        seen_pesticide_ids.add(pid)
+        evidence.append({
+            "type": "pesticide",
+            "ref": f"pesticide_registry.id={pid}",
+            "summary": (f"农药登记库：{item.get('name')}"
+                        f"（{'已校审' if item.get('verified') else '未校审'}）"),
+            "verified": item.get("verified"),
+            "source": item.get("source"),
+        })
+
     # ---- 治疗方案：一律来自检索，绝不生成 ----
     # 只采用与最终诊断病名一致的知识条目。检索返回的是一个候选集合
     # （含同科近缘病、同作物的其他病），若把它们的防治措施合并，
@@ -125,12 +143,27 @@ def build_report(
                 "name": item.get("name"),
                 "dosage": item.get("dosage"),
                 "safe_interval_days": item.get("safe_interval_days"),
-                "source_chunk": item.get("source_chunk"),
+                "registration_no": item.get("registration_no"),
+                "verified": bool(item.get("verified")),
+                "source_ref": item.get("source_ref"),
             })
+
+    if medicines:
+        if any(m["verified"] for m in medicines):
+            treatment_note = "药品与剂量均来自已校审的农药登记条目；请遵循标签与当地农技部门指导。"
+        else:
+            treatment_note = (pesticides or {}).get("note") or (
+                "仅检索到未校审农药条目，未提供剂量；正式用药前须人工核对。"
+            )
+    elif knowledge:
+        treatment_note = "农药登记库无该病害条目，按项目红线不生成药品与剂量。"
+    else:
+        treatment_note = "无知识库支撑，未给出防治措施"
 
     if disease_name == HEALTHY_LABEL:
         treatment_steps = []
         medicines = []
+        treatment_note = "健康植株，无需用药。"
 
     # ---- 是否转人工 ----
     review_step = next((r for r in reversed(history) if r.tool_name == "request_human_review"), None)
@@ -175,11 +208,7 @@ def build_report(
             "steps": treatment_steps,
             "medicines": medicines,
             "source_chunks": [c.get("chunk_id") for c in treatment_chunks],
-            "note": (
-                "未提供具体药剂：登记农药数据源尚未建立，按项目红线不生成药品与剂量"
-                if knowledge else
-                "无知识库支撑，未给出防治措施"
-            ),
+            "note": treatment_note,
         },
         "needs_human": needs_human,
         "human_review_reason": human_reason,

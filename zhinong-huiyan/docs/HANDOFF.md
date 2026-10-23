@@ -22,6 +22,7 @@
 | 当前生产权重 | `ai-model/checkpoints/best.pt`（= v1.5-papaya） |
 | 数据清单 | `ai-model/data/manifests/v1.json`（gitignored，需重建） |
 | 数据集登记表 | `ai-model/data/dataset_registry.py` |
+| 农药登记库（query_pesticide 数据源） | `backend/pesticide/registry.py` + `models.PesticideEntry`（表 `pesticide_registry`） |
 | 训练/跨域/飞轮报告 | `docs/training.md`、`docs/cross_domain_eval.md`、`docs/flywheel.md`、`docs/datasets.md` |
 
 ## 3. 版本链（数据库 `model_versions`）
@@ -52,6 +53,12 @@
 7. **新增作物前先保证已有作物的跨域鲁棒性**：跨域芒果有 18% 在特征空间与菠萝重叠，
    任何包含菠萝类的分类器都会损失这部分样本（详见 §5.1）。不要把回退误判成
    “病害头被污染”而去分支病害头。
+8. **用药数据只来自 `pesticide_registry`**：`query_pesticide` 查表返回，禁止模型生成。
+   未校审条目（`verified=false`）只返回药品名与登记信息、**不下发剂量**；
+   已校审条目必须带 `dosage` 才允许入库（导入时强制校验）。
+9. **诊断 Agent 有两个入口**：`POST /agent/diagnose`（同步）与
+   `POST /agent/diagnose/stream`（SSE，前端实时渲染思考时间线）。两者共用
+   `run_agent` 与同一套落库逻辑，不要只改其中一个。
 
 ## 5. 未完成项（按优先级）
 
@@ -64,8 +71,8 @@
    **不要再实现“按作物分支的病害头”**——病害头是好的，分支解决不了作物头混淆。
    解锁条件：新增许可合规的芒果域多样性来源。商用路线还需把菠萝数据换成
    `pineapple_pldd`（CC BY 4.0）——当前 `pineapple_cand` 为 CC BY-NC-SA，仅研究可用。
-2. **后端当前是停止状态**，`checkpoints/best.pt` 为 v1.5。
-3. 大量改动尚未提交 git（`git status` 可查看）。
+2. **后端不常驻**：需要时按 §6 启动；`checkpoints/best.pt` 为 v1.5。
+3. 本轮农药登记库与 SSE 改动尚未提交（`git status` 可查看）。
 
 ## 6. 常用命令
 
@@ -77,6 +84,18 @@ cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m uvicorn main:app --po
 ```bash
 # 启动前端
 cd zhinong-huiyan/frontend && npm run dev
+```
+
+```bash
+# 导入农药登记样例（全部标记未校审；可重复执行，按记录去重）
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry --seed
+
+# 导入真实登记数据（JSON 数组或 CSV；--replace 覆盖同键条目）
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry \
+    --file /path/to/pesticides.csv
+
+# 查看库中条目
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry --list
 ```
 
 ```bash
@@ -106,7 +125,24 @@ cd zhinong-huiyan/ai-model && python training/eval_cross_domain.py \
     --weights checkpoints/<tag>/best.pt
 ```
 
-## 7. 环境注意
+## 7. 改造方案验收状态（2026-10-23 核对）
+
+| 阶段 | 验收项 | 状态 |
+|---|---|---|
+| P0 | 去 Mock、接真实推理、最小可用权重 | ✅ |
+| P0 | `reports/cnn_metrics.md` 产物 | ❌ 指标在 `checkpoints/*/metrics.json` 与 `docs/training.md`，未按方案要求的文件名产出 |
+| P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
+| P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
+| P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ✅ 但语料全部为 `ai_draft_unreviewed`，**未人工校对** |
+| P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、样例均就绪；样例未校审，不下发剂量 |
+| P3 | 飞轮最小闭环 | ✅ |
+| P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |
+| P4 | README 数字同步 | ❌ README 仍写 42 类、PostgreSQL、准确率 >95% |
+
+仍在方案范围内但未完成的只有：`reports/cnn_metrics.md`、README 口径同步、
+RAG 语料人工校对、农药登记真实数据导入与校订。
+
+## 8. 环境注意
 
 - 必须用 `backend/.venv`（Python 3.11）。系统默认 Python 3.14 没有 torch。
 - HuggingFace 需要 `HF_ENDPOINT=https://hf-mirror.com`（代码已默认）。

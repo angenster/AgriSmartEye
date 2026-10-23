@@ -1,5 +1,6 @@
-import client, { GATE_TIMEOUT } from './client'
+import client, { GATE_TIMEOUT, TOKEN_KEY } from './client'
 import type {
+  AgentStep,
   AnalysisSummary,
   CostComparison,
   DetectionRecord,
@@ -55,6 +56,91 @@ export async function diagnose(file: File, fieldId?: number): Promise<DiagnoseRe
     params: fieldId != null ? { field_id: fieldId } : undefined,
   })
   return data
+}
+
+export interface DiagnoseStreamHandlers {
+  onStart?: (data: { image_path?: string }) => void
+  onStep?: (step: AgentStep) => void
+  onReport?: (result: DiagnoseResult) => void
+  onError?: (message: string) => void
+}
+
+/**
+ * SSE 流式诊断：每完成一步就回调 onStep，前端可实时渲染思考时间线。
+ *
+ * 用 fetch 而不是 EventSource，因为 EventSource 只支持 GET，无法带 Authorization
+ * 头，也无法上传 FormData。
+ */
+export async function diagnoseStream(
+  file: File,
+  fieldId: number | undefined,
+  handlers: DiagnoseStreamHandlers,
+  signal?: AbortSignal,
+): Promise<DiagnoseResult | null> {
+  const form = new FormData()
+  form.append('file', file)
+  const token = localStorage.getItem(TOKEN_KEY)
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+
+  const query = fieldId != null ? `?field_id=${fieldId}` : ''
+  const resp = await fetch(`/api/v1/agent/diagnose/stream${query}`, {
+    method: 'POST',
+    headers,
+    body: form,
+    signal,
+  })
+
+  if (resp.status === 401) {
+    localStorage.removeItem(TOKEN_KEY)
+    if (!window.location.pathname.startsWith('/login')) window.location.href = '/login'
+    throw new Error('登录已过期，请重新登录')
+  }
+  if (!resp.ok || !resp.body) {
+    let detail = `HTTP ${resp.status}`
+    try {
+      const body = await resp.json()
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch {
+      // 非 JSON 错误体，保留状态码
+    }
+    throw new Error(detail)
+  }
+
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let final: DiagnoseResult | null = null
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary >= 0) {
+      const raw = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+
+      let event = 'message'
+      const dataLines: string[] = []
+      for (const line of raw.split(/\r?\n/)) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+      }
+      if (dataLines.length > 0) {
+        const data = JSON.parse(dataLines.join('\n'))
+        if (event === 'start') handlers.onStart?.(data)
+        else if (event === 'step') handlers.onStep?.(data as AgentStep)
+        else if (event === 'report') {
+          final = data as DiagnoseResult
+          handlers.onReport?.(final)
+        } else if (event === 'error') handlers.onError?.(data.message ?? 'Agent 运行失败')
+      }
+      boundary = buffer.indexOf('\n\n')
+    }
+  }
+  return final
 }
 
 export async function listAgentRuns(limit = 20) {

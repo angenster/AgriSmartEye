@@ -26,13 +26,14 @@ export interface AgentStep {
 }
 
 export interface Evidence {
-  type: 'cnn' | 'vlm' | 'rag'
+  type: 'cnn' | 'vlm' | 'rag' | 'pesticide'
   ref: string
   summary?: string
   quote?: string
   source?: string
   title?: string
   reviewed?: boolean | null
+  verified?: boolean | null
 }
 
 export interface Report {
@@ -51,7 +52,14 @@ export interface Report {
   evidence: Evidence[]
   treatment: {
     steps: string[]
-    medicines: { name: string; dosage: string; safe_interval_days?: number; source_chunk?: number }[]
+    medicines: {
+      name: string
+      dosage: string | null
+      safe_interval_days?: number | null
+      registration_no?: string | null
+      verified?: boolean
+      source_ref?: string | null
+    }[]
     source_chunks?: number[]
     note?: string | null
   }
