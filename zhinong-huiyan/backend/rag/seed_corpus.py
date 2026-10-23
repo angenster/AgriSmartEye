@@ -4,16 +4,25 @@
 【重要：来源与使用边界】
   本文件内容为 AI 起草的**未经人工校对的草稿**，用于让检索链路有真实数据可跑通。
   每条入库时都会带上 source="ai_draft_unreviewed"，检索结果与诊断报告中会如实显示
-  该来源。正式使用前必须由植保专业人员对照权威资料校对，校对后改 source 并重跑索引。
+  该来源。正式使用前必须由植保专业人员对照权威资料校对。
+
+  校对结果不写进本文件，而是记录在同目录的 corpus_reviews.json（由
+  `python -m rag.review_corpus --apply` 生成）。被签字的条目入库 source 变为
+  "manual_reviewed"，metadata 里带上校对人与日期；未签字的仍为草稿。
+  这样语料正文与校对状态分离，改动可追溯。
 
 【刻意不包含的内容】
   本文件**不包含任何化学药剂名称与剂量**。按项目红线 #3，药品与剂量只能来自
   农药登记库（query_pesticide 工具的数据源），不得由模型或本语料生成。
   因此下面只写农业防治与物理防治措施；化学防治留待农药登记库建立后接入。
 """
+import json
+from pathlib import Path
 from typing import Dict, List
 
 SOURCE_TAG = "ai_draft_unreviewed"
+REVIEWED_SOURCE_TAG = "manual_reviewed"
+REVIEWS_PATH = Path(__file__).with_name("corpus_reviews.json")
 
 # 每条形如：
 #   name       病虫害名（与 labels.DISEASE_CLASSES 对齐）
@@ -252,14 +261,34 @@ CORPUS: List[Dict] = [
 ]
 
 
+def load_reviews() -> Dict[str, Dict]:
+    """读取人工校对登记。文件不存在或损坏时视为“全部未校对”，不静默放行。"""
+    if not REVIEWS_PATH.exists():
+        return {}
+    try:
+        data = json.loads(REVIEWS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(name): record
+        for name, record in data.items()
+        if isinstance(record, dict) and record.get("reviewed") is True
+    }
+
+
 def to_chunks() -> List[Dict]:
     """把语料转成可入库的 chunk 列表。
 
     每类病虫害天然构成一个知识条目，故按条目分块（不做滑窗），
     这样 chunk 与业务实体一一对应，引用时能直接回到具体病虫害。
     """
+    reviews = load_reviews()
     chunks: List[Dict] = []
     for item in CORPUS:
+        review = reviews.get(item["name"]) or {}
+        reviewed = bool(review.get("reviewed"))
         title = f"{item['crop']}·{item['name']}（{item['category']}）"
         lines = [
             f"症状：{item['symptoms']}",
@@ -268,7 +297,7 @@ def to_chunks() -> List[Dict]:
             f"防治：{'；'.join(item['treatment'])}",
         ]
         chunks.append({
-            "source": SOURCE_TAG,
+            "source": REVIEWED_SOURCE_TAG if reviewed else SOURCE_TAG,
             "ref_id": item["name"],
             "title": title,
             "text": "\n".join(lines),
@@ -276,7 +305,9 @@ def to_chunks() -> List[Dict]:
                 "name": item["name"],
                 "crop": item["crop"],
                 "category": item["category"],
-                "reviewed": False,
+                "reviewed": reviewed,
+                "reviewer": review.get("reviewer"),
+                "reviewed_at": review.get("reviewed_at"),
             },
         })
     return chunks

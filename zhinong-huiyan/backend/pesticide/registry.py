@@ -14,6 +14,7 @@ from typing import Dict, Iterable, List, Optional
 from sqlalchemy.orm import Session
 
 from models import PesticideEntry
+from labels import CROP_CLASSES, DISEASE_CLASSES
 
 REQUIRED_FIELDS = ("disease_name", "product_name", "source")
 
@@ -46,6 +47,19 @@ def _clean(record: Dict) -> Dict:
             row[key] = str(row[key]).strip() or None
 
     row["verified"] = _to_bool(row.get("verified"))
+
+    # 标签空间校验：模型只会用 DISEASE_CLASSES 里的名称查询，
+    # 写错的条目导入后永远查不到，必须在入库前拦住。
+    if row["disease_name"] not in DISEASE_CLASSES:
+        raise ValueError(
+            f"disease_name {row['disease_name']!r} 不在模型标签空间内，"
+            f"可用值: {'、'.join(DISEASE_CLASSES)}"
+        )
+    if row.get("crop_type") and row["crop_type"] not in CROP_CLASSES:
+        raise ValueError(
+            f"crop_type {row['crop_type']!r} 不在作物清单内，"
+            f"可用值: {'、'.join(CROP_CLASSES)}"
+        )
 
     if row.get("safe_interval_days") in ("", None):
         row["safe_interval_days"] = None
@@ -140,6 +154,29 @@ def query_entries(db: Session, disease_name: str, crop_type: Optional[str] = Non
     return sorted(rows, key=lambda r: (not r.verified, r.id))
 
 
+def validate_file(path: str | Path) -> Dict:
+    """只校验不写库：用于人工收集数据后的自检。"""
+    records = load_file(path)
+    errors = []
+    valid = 0
+    for i, record in enumerate(records, 1):
+        try:
+            _clean(record)
+            valid += 1
+        except ValueError as e:
+            errors.append(f"第 {i} 条: {e}")
+    return {"total": len(records), "valid": valid, "errors": errors}
+
+
+def write_template(path: str | Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        csv.DictWriter(f, fieldnames=ALLOWED_FIELDS).writeheader()
+    print(f"已生成空模板: {path}")
+    print("字段说明见 docs/pesticide_data.md；verified=true 时必须填 dosage。")
+
+
 def _main() -> None:
     from database import Base, SessionLocal, engine
 
@@ -150,7 +187,20 @@ def _main() -> None:
     ap.add_argument("--seed", action="store_true", help="导入内置样例（全部标记未校审）")
     ap.add_argument("--replace", action="store_true", help="更新已存在的同键条目")
     ap.add_argument("--list", action="store_true", help="列出库中条目")
+    ap.add_argument("--template", metavar="CSV", help="生成空白 CSV 模板")
+    ap.add_argument("--check", metavar="CSV", help="只校验文件，不写库")
     args = ap.parse_args()
+
+    if args.template:
+        write_template(args.template)
+        return
+
+    if args.check:
+        result = validate_file(args.check)
+        print(f"共 {result['total']} 条，通过校验 {result['valid']} 条")
+        for err in result["errors"]:
+            print(f"  [错误] {err}")
+        return
 
     db = SessionLocal()
     try:
@@ -165,7 +215,7 @@ def _main() -> None:
 
         path = args.file or (Path(__file__).with_name("seed.json") if args.seed else None)
         if not path:
-            ap.error("需要 --file 或 --seed")
+            ap.error("需要 --file / --seed / --list / --template / --check 之一")
         stats = import_entries(db, load_file(path), replace=args.replace)
         print(f"导入完成: 新增 {stats['inserted']} / 更新 {stats['updated']} / "
               f"跳过 {stats['skipped']}")

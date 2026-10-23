@@ -71,8 +71,14 @@
    **不要再实现“按作物分支的病害头”**——病害头是好的，分支解决不了作物头混淆。
    解锁条件：新增许可合规的芒果域多样性来源。商用路线还需把菠萝数据换成
    `pineapple_pldd`（CC BY 4.0）——当前 `pineapple_cand` 为 CC BY-NC-SA，仅研究可用。
-2. **后端不常驻**：需要时按 §6 启动；`checkpoints/best.pt` 为 v1.5。
-3. 本轮农药登记库与 SSE 改动尚未提交（`git status` 可查看）。
+2. **内容安全尚未完成（工具已就绪，等人签字）**：
+   - RAG 42 条语料仍全部是 `ai_draft_unreviewed`。初审报告见
+     `docs/corpus_review.md`（10 条需重点核对，其中甘蔗赤腐病病原、椰子红环腐病
+     病因表述风险较高）。校对登记与回填工具：`python -m rag.review_corpus`。
+   - 农药登记库只有 6 条未校审样例，**没有任何真实登记数据文件**。收集与导入规范见
+     `docs/pesticide_data.md`（最小集 20–30 条，来源必须是官方登记信息或标签）。
+3. **后端不常驻**：需要时按 §6 启动；`checkpoints/best.pt` 为 v1.5。
+4. 本轮语料校对工具与初审报告尚未提交（`git status` 可查看）。
 
 ## 6. 常用命令
 
@@ -90,12 +96,25 @@ cd zhinong-huiyan/frontend && npm run dev
 # 导入农药登记样例（全部标记未校审；可重复执行，按记录去重）
 cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry --seed
 
-# 导入真实登记数据（JSON 数组或 CSV；--replace 覆盖同键条目）
+# 生成空白模板 / 只校验不写库 / 导入真实数据
 cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry \
-    --file /path/to/pesticides.csv
+    --template ../docs/pesticide_data.csv
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry \
+    --check ../docs/pesticide_data.csv
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry \
+    --file ../docs/pesticide_data.csv
 
 # 查看库中条目
 cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m pesticide.registry --list
+```
+
+```bash
+# 语料人工校对：导出 → 专家填写 → 回填 → 重建索引
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m rag.review_corpus \
+    --export ../docs/corpus_review.csv
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m rag.review_corpus \
+    --apply ../docs/corpus_review.csv
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m rag.indexer
 ```
 
 ```bash
@@ -133,14 +152,14 @@ cd zhinong-huiyan/ai-model && python training/eval_cross_domain.py \
 | P0 | `reports/cnn_metrics.md` 产物 | ❌ 指标在 `checkpoints/*/metrics.json` 与 `docs/training.md`，未按方案要求的文件名产出 |
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
-| P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ✅ 但语料全部为 `ai_draft_unreviewed`，**未人工校对** |
-| P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、样例均就绪；样例未校审，不下发剂量 |
+| P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标，但 42 条全部未人工校对；初审报告与签字工具已就绪（`docs/corpus_review.md`） |
+| P2 | 农药登记表 + `query_pesticide` | ⚠️ 表、导入管道、检索已就绪；仅 6 条未校审样例，真实登记数据待导入校订 |
 | P3 | 飞轮最小闭环 | ✅ |
 | P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |
 | P4 | README 数字同步 | ❌ README 仍写 42 类、PostgreSQL、准确率 >95% |
 
 仍在方案范围内但未完成的只有：`reports/cnn_metrics.md`、README 口径同步、
-RAG 语料人工校对、农药登记真实数据导入与校订。
+RAG 语料人工签字、农药登记真实数据导入与校订。
 
 ## 8. 环境注意
 
