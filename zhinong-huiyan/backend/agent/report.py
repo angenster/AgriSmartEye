@@ -62,6 +62,7 @@ def _rag_evidence(chunk: Dict) -> Dict:
         "source": chunk.get("source"),
         "title": chunk.get("title"),
         "reviewed": chunk.get("reviewed"),
+        "sources": chunk.get("sources") or [],
     }
 
 

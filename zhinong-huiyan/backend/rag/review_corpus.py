@@ -20,7 +20,7 @@ from rag import seed_corpus
 
 FIELDS = [
     "name", "crop", "category", "symptoms", "causes", "prevention", "treatment",
-    "reviewed", "reviewer", "reviewed_at", "verdict", "notes",
+    "sources", "reviewed", "reviewer", "reviewed_at", "verdict", "notes",
 ]
 
 APPROVE = {"通过", "approved", "pass", "ok"}
@@ -36,6 +36,7 @@ def _row(item: Dict, review: Dict) -> Dict:
         "causes": item["causes"],
         "prevention": "；".join(item["prevention"]),
         "treatment": "；".join(item["treatment"]),
+        "sources": " | ".join(item.get("sources") or []),
         "reviewed": "是" if review.get("reviewed") else "否",
         "reviewer": review.get("reviewer") or "",
         "reviewed_at": review.get("reviewed_at") or "",

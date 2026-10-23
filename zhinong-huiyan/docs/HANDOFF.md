@@ -77,6 +77,9 @@
    - RAG 42 条语料仍全部是 `ai_draft_unreviewed`。初审报告见
      `docs/corpus_review.md`（10 条需重点核对，其中甘蔗赤腐病病原、椰子红环腐病
      病因表述风险较高）。校对登记与回填工具：`python -m rag.review_corpus`。
+   - 2026-10-23 完成一轮**有出处的 AI 复核**：只覆盖模型可触达的 12 条，修正了病原名
+     与流行条件并补充 `sources`；明细见 `docs/corpus_ai_review.md`。这**仍不是人工校审**，
+     `reviewed` 保持 false，索引已重建。人工签字仍需植保人员。
 3. **后端不常驻**：需要时按 §6 启动；`checkpoints/best.pt` 为 v1.5。
 4. 本轮语料校对工具与初审报告尚未提交（`git status` 可查看）。
 
@@ -159,7 +162,7 @@ cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py --skip-eval
 | P0 | `reports/cnn_metrics.md` 产物 | ✅ 由 `training/make_cnn_metrics.py` 生成，含原始与生产推理路径两套口径 |
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
-| P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标，但 42 条全部未人工校对；初审报告与签字工具已就绪（`docs/corpus_review.md`） |
+| P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标；12 条可触达条目已做有出处的 AI 复核，仍待人工签字（`docs/corpus_ai_review.md`） |
 | P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、检索已就绪；**产品边界：无已校核数据，不提供化学用药** |
 | P3 | 飞轮最小闭环 | ✅ |
 | P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |

@@ -34,6 +34,7 @@ export interface Evidence {
   title?: string
   reviewed?: boolean | null
   verified?: boolean | null
+  sources?: string[]
 }
 
 export interface Report {

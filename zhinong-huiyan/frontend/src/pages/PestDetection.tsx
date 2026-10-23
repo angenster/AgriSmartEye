@@ -98,6 +98,11 @@ function ReportView({ result }: { result: DiagnoseResult }) {
             <span className="text-gray-500">{e.ref}</span>
             {e.title && <span className="ml-2">{e.title}</span>}
             {e.quote && <div className="text-gray-600 mt-1">{e.quote}</div>}
+            {e.sources && e.sources.length > 0 && (
+              <div className="text-gray-400 mt-1">
+                出处：{e.sources.join('；')}
+              </div>
+            )}
           </div>
         ))}
       </div>

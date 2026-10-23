@@ -238,6 +238,7 @@ def search(query: str, top_k: int = 5, candidate_k: int = 20,
                 "source": row["source"],
                 "ref_id": row["ref_id"],
                 "reviewed": meta.get("reviewed"),
+                "sources": meta.get("sources") or [],
             })
 
         return {
