@@ -144,12 +144,19 @@ cd zhinong-huiyan/ai-model && python training/eval_cross_domain.py \
     --weights checkpoints/<tag>/best.pt
 ```
 
+```bash
+# 生成 CNN 基线指标报告（会加载生产权重在门禁评测集上重跑）
+cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py
+# 只汇总已有 metrics.json / 跨域报告，不加载模型
+cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py --skip-eval
+```
+
 ## 7. 改造方案验收状态（2026-10-23 核对）
 
 | 阶段 | 验收项 | 状态 |
 |---|---|---|
 | P0 | 去 Mock、接真实推理、最小可用权重 | ✅ |
-| P0 | `reports/cnn_metrics.md` 产物 | ❌ 指标在 `checkpoints/*/metrics.json` 与 `docs/training.md`，未按方案要求的文件名产出 |
+| P0 | `reports/cnn_metrics.md` 产物 | ✅ 由 `training/make_cnn_metrics.py` 生成，含原始与生产推理路径两套口径 |
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
 | P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标，但 42 条全部未人工校对；初审报告与签字工具已就绪（`docs/corpus_review.md`） |
@@ -158,7 +165,11 @@ cd zhinong-huiyan/ai-model && python training/eval_cross_domain.py \
 | P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |
 | P4 | README 数字同步 | ✅ 已按实际指标、技术栈与边界重写 |
 
-仍在方案范围内但未完成的只有：`reports/cnn_metrics.md`、RAG 语料人工签字。
+仍在方案范围内但未完成的只有：RAG 语料人工签字。
+
+> `cnn_metrics.md` 里的 95.85% 是“仅训练类”口径（940 张：病害与作物都在训练范围内）。
+> 当前 `v1_test.json` 已重建为 1122 张，含菠萝的 2 个未训练病害类与 74 张菠萝健康图；
+> 直接算全量会得到 85.83%，那是能力缺口，不是回归。两套口径报告里都有。
 
 ## 8. 环境注意
 

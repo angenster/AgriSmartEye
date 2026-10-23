@@ -33,7 +33,9 @@
 
 **同域 95.85% 不代表田间可用。** 换个国家、换台手机、换片果园，芒果会掉到 68%。
 对外演示时两组数字必须同时给出。评测方法与逐类明细见
-[`docs/cross_domain_eval.md`](docs/cross_domain_eval.md)。
+[`docs/cross_domain_eval.md`](docs/cross_domain_eval.md)，完整口径（训练脚本原始
+argmax、生产推理路径、逐类召回）见
+[`ai-model/reports/cnn_metrics.md`](ai-model/reports/cnn_metrics.md)。
 
 ## 4. 系统边界与已知限制
 
