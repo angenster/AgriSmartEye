@@ -222,7 +222,8 @@ export default function PestDetection() {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">AI 病虫害识别</h2>
         <p className="text-gray-500 mt-1">
-          轻量化 CNN 快筛，或由诊断 Agent 自主决定是否升级多模态模型、查证知识库
+          轻量化 CNN 快筛，或由诊断 Agent 自主决定是否升级多模态模型、查证知识库。
+          当前不提供化学用药剂量（登记数据尚未校核），仅给出诊断与非化学防治建议。
         </p>
       </div>
 

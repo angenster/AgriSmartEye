@@ -71,12 +71,12 @@
    **不要再实现“按作物分支的病害头”**——病害头是好的，分支解决不了作物头混淆。
    解锁条件：新增许可合规的芒果域多样性来源。商用路线还需把菠萝数据换成
    `pineapple_pldd`（CC BY 4.0）——当前 `pineapple_cand` 为 CC BY-NC-SA，仅研究可用。
-2. **内容安全尚未完成（工具已就绪，等人签字）**：
+2. **内容安全（已定为产品边界）**：
+   - **不提供化学用药建议**：仓库内没有经人工校核的农药登记数据，未校审条目只给药名
+     与登记信息、不下发剂量；对外表述统一为“诊断 + 非化学防治”。README §4.1 已写明。
    - RAG 42 条语料仍全部是 `ai_draft_unreviewed`。初审报告见
      `docs/corpus_review.md`（10 条需重点核对，其中甘蔗赤腐病病原、椰子红环腐病
      病因表述风险较高）。校对登记与回填工具：`python -m rag.review_corpus`。
-   - 农药登记库只有 6 条未校审样例，**没有任何真实登记数据文件**。收集与导入规范见
-     `docs/pesticide_data.md`（最小集 20–30 条，来源必须是官方登记信息或标签）。
 3. **后端不常驻**：需要时按 §6 启动；`checkpoints/best.pt` 为 v1.5。
 4. 本轮语料校对工具与初审报告尚未提交（`git status` 可查看）。
 
@@ -153,13 +153,12 @@ cd zhinong-huiyan/ai-model && python training/eval_cross_domain.py \
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
 | P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标，但 42 条全部未人工校对；初审报告与签字工具已就绪（`docs/corpus_review.md`） |
-| P2 | 农药登记表 + `query_pesticide` | ⚠️ 表、导入管道、检索已就绪；仅 6 条未校审样例，真实登记数据待导入校订 |
+| P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、检索已就绪；**产品边界：无已校核数据，不提供化学用药** |
 | P3 | 飞轮最小闭环 | ✅ |
 | P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |
-| P4 | README 数字同步 | ❌ README 仍写 42 类、PostgreSQL、准确率 >95% |
+| P4 | README 数字同步 | ✅ 已按实际指标、技术栈与边界重写 |
 
-仍在方案范围内但未完成的只有：`reports/cnn_metrics.md`、README 口径同步、
-RAG 语料人工签字、农药登记真实数据导入与校订。
+仍在方案范围内但未完成的只有：`reports/cnn_metrics.md`、RAG 语料人工签字。
 
 ## 8. 环境注意
 
