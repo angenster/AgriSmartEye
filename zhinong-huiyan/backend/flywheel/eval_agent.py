@@ -47,6 +47,8 @@ def _load_trained(weights: Path) -> List[str]:
 def load_samples(dataset: Path, trained: List[str], per_class: int, seed: int) -> List[Dict]:
     """只取“病害与作物都在训练范围内”的样本，按类别分层抽样。"""
     data = json.loads(dataset.read_text(encoding="utf-8"))
+    if isinstance(data, dict):          # 演示集 e2.json 形如 {"items": [...]}
+        data = data.get("items") or []
     trained_set = set(trained)
     trained_crops = {crop_of_label(label) for label in trained_set if crop_of_label(label)}
 
@@ -54,16 +56,17 @@ def load_samples(dataset: Path, trained: List[str], per_class: int, seed: int) -
     for row in sorted(data, key=lambda r: r.get("image_path") or ""):
         label = row.get("label") or row.get("disease")
         crop = row.get("crop")
-        path = row.get("image_path")
-        if not label or not path:
+        raw = row.get("image_path")
+        if not label or not raw:
             continue
         if label not in trained_set:
             continue
         if crop and crop not in trained_crops:
             continue
-        if not Path(path).exists():
+        path = Path(raw) if Path(raw).is_absolute() else AI_MODEL_DIR / raw
+        if not path.exists():
             continue
-        by_label[label].append(row)
+        by_label[label].append({**row, "image_path": str(path)})
 
     rnd = random.Random(seed)
     picked: List[Dict] = []

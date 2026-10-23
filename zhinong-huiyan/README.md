@@ -62,7 +62,7 @@ argmax、生产推理路径、逐类召回）见
 | 菠萝 | 数据已获取，但加入后芒果跨域从 68.14% 掉到 55~60%，门禁拒绝，暂未上线 |
 | 真实田间数据 | 尚未采集；现有指标全部来自公开数据集 |
 | 病斑定位 | 图像级分类，不输出 bbox |
-| 自动化测试 | 仓库目前没有测试套件 |
+| 自动化测试 | 17 个 unittest，覆盖农药导入校验、语料校对与 SSE 事件顺序 |
 
 ## 5. 快速启动
 
@@ -157,6 +157,7 @@ zhinong-huiyan/
 | [`docs/flywheel.md`](docs/flywheel.md) | 数据飞轮闭环与六版候选结果 |
 | [`docs/pesticide_data.md`](docs/pesticide_data.md) | 农药登记数据采集、导入与校核规范 |
 | [`docs/corpus_review.md`](docs/corpus_review.md) | 语料初审报告与校对流程 |
+| [`docs/demo.md`](docs/demo.md) | 固定演示集与演示流程 |
 | [`ai-model/reports/agent_metrics.md`](ai-model/reports/agent_metrics.md) | Agent 级评测：准确率、升级率、needs_human 与证据核对率 |
 
 ## 10. 目标市场与商业模式（规划）

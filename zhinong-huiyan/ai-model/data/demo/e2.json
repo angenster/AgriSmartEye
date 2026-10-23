@@ -1,0 +1,180 @@
+{
+  "generated_at": "2026-10-23 22:25",
+  "source_manifest": "data/manifests/v1_test.json",
+  "per_class": 2,
+  "hard_count": 4,
+  "items": [
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Anthracnose/Anthracnose(181).jpg",
+      "label": "木瓜炭疽病",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/dragonfruit_mendeley/Healthy_leaf/Healthy_leaf_872.jpg",
+      "label": "健康",
+      "crop": "火龙果",
+      "source": "dragonfruit_mendeley",
+      "difficulty": "hard",
+      "note": "CNN top1-top2 margin=0.0118，top1=火龙果溃疡病"
+    },
+    {
+      "image_path": "data/raw/banana_kaggle/Banana Disease Recognition Dataset/Original Images/Original Images/Banana Panama Disease/Panama Disease (4).jpg",
+      "label": "香蕉枯萎病",
+      "crop": "香蕉",
+      "source": "banana_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/coffee_bracol_cls/Rust/93_jpg.rf.488818748f76d5fd706b77c426ac3aa0.jpg",
+      "label": "咖啡锈病",
+      "crop": "咖啡",
+      "source": "coffee_bracol_cls",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Healthy/Healthy(171).jpg",
+      "label": "健康",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/dragonfruit_mendeley/Stem_Canker/Stem_Canker_55.jpg",
+      "label": "火龙果溃疡病",
+      "crop": "火龙果",
+      "source": "dragonfruit_mendeley",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/coffee_rocole_kaggle/coffee___healthy/C6P29E1.jpg",
+      "label": "健康",
+      "crop": "咖啡",
+      "source": "coffee_rocole_kaggle",
+      "difficulty": "hard",
+      "note": "CNN top1-top2 margin=0.0298，top1=健康"
+    },
+    {
+      "image_path": "data/raw/banana_kaggle/Banana Disease Recognition Dataset/Original Images/Original Images/Banana Black Sigatoka Disease/Black Sigatoka Disease (57).jpg",
+      "label": "香蕉黑星病",
+      "crop": "香蕉",
+      "source": "banana_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/mango_vn_kaggle/Anthracnose/Anthracnose_706.jpg",
+      "label": "芒果炭疽病",
+      "crop": "芒果",
+      "source": "mango_vn_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/banana_kaggle/Banana Disease Recognition Dataset/Original Images/Original Images/Banana Black Sigatoka Disease/Black Sigatoka Disease (66).jpg",
+      "label": "香蕉黑星病",
+      "crop": "香蕉",
+      "source": "banana_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/dragonfruit_mendeley/Healthy_fruit/Healthy_fruit_386.jpg",
+      "label": "健康",
+      "crop": "火龙果",
+      "source": "dragonfruit_mendeley",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Healthy/Healthy(207).jpg",
+      "label": "健康",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "hard",
+      "note": "CNN top1-top2 margin=0.0081，top1=木瓜花叶病"
+    },
+    {
+      "image_path": "data/raw/dragonfruit_mendeley/Stem_Canker/Stem_Canker_335.jpg",
+      "label": "火龙果溃疡病",
+      "crop": "火龙果",
+      "source": "dragonfruit_mendeley",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/coffee_rocole_kaggle/coffee___rust/C8P17H1.jpg",
+      "label": "咖啡锈病",
+      "crop": "咖啡",
+      "source": "coffee_rocole_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/banana_kaggle/Banana Disease Recognition Dataset/Original Images/Original Images/Banana Panama Disease/Panama Disease (18).jpg",
+      "label": "香蕉枯萎病",
+      "crop": "香蕉",
+      "source": "banana_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Curl/Curl(195).jpg",
+      "label": "木瓜花叶病",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Curl/Curl(574).jpg",
+      "label": "木瓜花叶病",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/coffee_rocole_kaggle/coffee___rust/C7P35H2.jpg",
+      "label": "咖啡锈病",
+      "crop": "咖啡",
+      "source": "coffee_rocole_kaggle",
+      "difficulty": "hard",
+      "note": "CNN top1-top2 margin=0.002，top1=健康"
+    },
+    {
+      "image_path": "data/raw/banana_xdom/OriginalSet/sigatoka/19.jpeg",
+      "label": "香蕉叶斑病",
+      "crop": "香蕉",
+      "source": "banana_xdom",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/mango_vn_kaggle/Powdery_Mildew/Powdery_Mildew_629.jpg",
+      "label": "芒果白粉病",
+      "crop": "芒果",
+      "source": "mango_vn_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/mango_vn_kaggle/Powdery_Mildew/Powdery_Mildew_550.jpg",
+      "label": "芒果白粉病",
+      "crop": "芒果",
+      "source": "mango_vn_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/mango_vn_kaggle/Anthracnose/Anthracnose_247.jpg",
+      "label": "芒果炭疽病",
+      "crop": "芒果",
+      "source": "mango_vn_kaggle",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/banana_xdom/OriginalSet/sigatoka/16.jpeg",
+      "label": "香蕉叶斑病",
+      "crop": "香蕉",
+      "source": "banana_xdom",
+      "difficulty": "normal"
+    },
+    {
+      "image_path": "data/raw/papaya_bdpapaya/BDPapayaLeaf/Original Images/Anthracnose/Anthracnose(335).jpg",
+      "label": "木瓜炭疽病",
+      "crop": "木瓜",
+      "source": "papaya_bdpapaya",
+      "difficulty": "normal"
+    }
+  ]
+}
