@@ -154,6 +154,12 @@ cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py
 cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py --skip-eval
 ```
 
+```bash
+# Agent 级评测（逐张跑完整诊断，产出 ai-model/reports/agent_metrics.md）
+cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m flywheel.eval_agent \
+    --per-class 10
+```
+
 ## 7. 改造方案验收状态（2026-10-23 核对）
 
 | 阶段 | 验收项 | 状态 |
@@ -162,17 +168,24 @@ cd zhinong-huiyan/ai-model && python training/make_cnn_metrics.py --skip-eval
 | P0 | `reports/cnn_metrics.md` 产物 | ✅ 由 `training/make_cnn_metrics.py` 生成，含原始与生产推理路径两套口径 |
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
+| P1 | Agent 级评测 | ✅ 96 张：Agent 94.79%、升级率 6.25%、needs_human 4.17%、证据核对 100%；无 VLM 密钥，相对 CNN 增益为 0（`ai-model/reports/agent_metrics.md`） |
 | P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标；12 条可触达条目已做有出处的 AI 复核，仍待人工签字（`docs/corpus_ai_review.md`） |
 | P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、检索已就绪；**产品边界：无已校核数据，不提供化学用药** |
 | P3 | 飞轮最小闭环 | ✅ |
 | P4 | LoRA 微调 + 门禁报告 | ✅ v1.6~v1.6f 六版 candidate 有完整记录 |
 | P4 | README 数字同步 | ✅ 已按实际指标、技术栈与边界重写 |
 
-仍在方案范围内但未完成的只有：RAG 语料人工签字。
-
 > `cnn_metrics.md` 里的 95.85% 是“仅训练类”口径（940 张：病害与作物都在训练范围内）。
 > 当前 `v1_test.json` 已重建为 1122 张，含菠萝的 2 个未训练病害类与 74 张菠萝健康图；
 > 直接算全量会得到 85.83%，那是能力缺口，不是回归。两套口径报告里都有。
+
+仍在方案范围内的缺口：
+
+- **RAG 语料人工签字**（需要植保人员）；
+- **VLM 升级路径未实测**：没有 `VLM_API_KEY`，升级尝试全部失败。评测显示被仲裁规则
+  挑出的 6 张难例准确率只有 33%，这正是双引擎该发挥作用的地方，但没有密钥无法验证增益；
+- **固定演示集未固化**：方案要求的 20 张 E2 素材还没有；
+- **`pest_info` 表 0 行**：42 条语料直接建在 `knowledge_chunks`，功能等价但与该表无关。
 
 ## 8. 环境注意
 

@@ -139,21 +139,25 @@ def run_agent(
     db.commit()
 
     # ---- 数据飞轮：把"模型拿不准"的样本自动送进复核队列 ----
-    # 失败不能影响诊断结果本身，因此单独兜底并如实回报
-    try:
-        from flywheel.trigger import maybe_enqueue
+    # 评测运行不入队：否则一次评测会把评测集整批灌进复核队列，
+    # 污染真实用户样本的分布。失败不能影响诊断结果本身。
+    if trigger == "eval":
+        enqueue_info = {"skipped": "eval run"}
+    else:
+        try:
+            from flywheel.trigger import maybe_enqueue
 
-        enqueue_info = maybe_enqueue(
-            db,
-            image_path=image_path,
-            cnn=last_ok(history, "run_cnn_detect") or {},
-            vlm=last_ok(history, "escalate_vlm"),
-            source="agent_run",
-            run_id=run.id,
-            field_id=field_id,
-        )
-    except Exception as e:  # noqa: BLE001
-        enqueue_info = {"error": f"{type(e).__name__}: {e}"}
+            enqueue_info = maybe_enqueue(
+                db,
+                image_path=image_path,
+                cnn=last_ok(history, "run_cnn_detect") or {},
+                vlm=last_ok(history, "escalate_vlm"),
+                source="agent_run",
+                run_id=run.id,
+                field_id=field_id,
+            )
+        except Exception as e:  # noqa: BLE001
+            enqueue_info = {"error": f"{type(e).__name__}: {e}"}
 
     report["flywheel"] = enqueue_info
     run.report_json = report

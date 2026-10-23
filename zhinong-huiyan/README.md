@@ -157,6 +157,7 @@ zhinong-huiyan/
 | [`docs/flywheel.md`](docs/flywheel.md) | 数据飞轮闭环与六版候选结果 |
 | [`docs/pesticide_data.md`](docs/pesticide_data.md) | 农药登记数据采集、导入与校核规范 |
 | [`docs/corpus_review.md`](docs/corpus_review.md) | 语料初审报告与校对流程 |
+| [`ai-model/reports/agent_metrics.md`](ai-model/reports/agent_metrics.md) | Agent 级评测：准确率、升级率、needs_human 与证据核对率 |
 
 ## 10. 目标市场与商业模式（规划）
 
