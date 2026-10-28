@@ -4,6 +4,30 @@ Agent 配置 —— 阈值、预算与外部模型接入参数，全部可由环
 密钥一律走环境变量，不写入仓库、不下发前端（项目红线 #4）。
 """
 import os
+from pathlib import Path
+
+
+def _load_env_file(path: Path) -> None:
+    """读取 backend/.env.local（已在 .gitignore 中），只填充尚未设置的变量。
+
+    密钥仍然只通过环境变量使用，这个文件只是本机启动时的一个便捷入口；
+    进程环境里已有的值优先，不会被文件覆盖。
+    """
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value.strip().strip('"').strip("'")
+
+
+_load_env_file(Path(__file__).resolve().parents[1] / ".env.local")
 
 # ---------- 双引擎仲裁阈值（方案 §5.4）----------
 # 代码层强制，不依赖 Agent 自觉

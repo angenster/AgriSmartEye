@@ -186,6 +186,26 @@ _VLM_USER_TEMPLATE = """请诊断这张作物叶片/果实图像。
 }}"""
 
 
+def _parse_vlm_json(text: str) -> Dict:
+    """解析 VLM 返回的 JSON。
+
+    部分 OpenAI 兼容服务不用 response_format，或习惯把 JSON 包在 ```json 代码块里，
+    这里统一剥掉围栏再解析；仍失败则截取第一个 { 到最后一个 } 兜底。
+    """
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+        if text.lower().startswith("json"):
+            text = text[4:].strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find("{"), text.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(text[start:end + 1])
+        raise
+
+
 def _tool_escalate_vlm(ctx: ToolContext, image_path: Optional[str] = None,
                        reason: str = "", question: Optional[str] = None) -> Dict:
     """升级到云端 VLM 精判。未配置密钥时返回结构化错误，由上层决定降级。"""
@@ -224,13 +244,19 @@ def _tool_escalate_vlm(ctx: ToolContext, image_path: Optional[str] = None,
     }
 
     started = time.time()
+    url = f"{config.VLM_BASE_URL.rstrip('/')}/chat/completions"
+    headers = {"Authorization": f"Bearer {config.VLM_API_KEY}"}
+
+    def _post(p: Dict):
+        return httpx.post(url, headers=headers, json=p, timeout=config.VLM_TIMEOUT_S)
+
     try:
-        resp = httpx.post(
-            f"{config.VLM_BASE_URL.rstrip('/')}/chat/completions",
-            headers={"Authorization": f"Bearer {config.VLM_API_KEY}"},
-            json=payload,
-            timeout=config.VLM_TIMEOUT_S,
-        )
+        resp = _post(payload)
+        # DeepSeek 图像理解等部分兼容服务不支持 response_format；
+        # 只有明确是这一项导致的 400 才去掉重试，避免掩盖其他错误。
+        if resp.status_code == 400 and "response_format" in resp.text:
+            payload.pop("response_format", None)
+            resp = _post(payload)
         resp.raise_for_status()
         body = resp.json()
     except httpx.TimeoutException:
@@ -242,7 +268,7 @@ def _tool_escalate_vlm(ctx: ToolContext, image_path: Optional[str] = None,
 
     latency_ms = round((time.time() - started) * 1000, 2)
     try:
-        parsed = json.loads(body["choices"][0]["message"]["content"])
+        parsed = _parse_vlm_json(body["choices"][0]["message"]["content"])
     except Exception as e:  # noqa: BLE001
         raise ToolError("vlm_bad_response", f"VLM 输出无法解析为 JSON: {type(e).__name__}: {e}")
 

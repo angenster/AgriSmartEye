@@ -115,8 +115,13 @@ def evaluate(samples: List[Dict]) -> Dict:
             "truth": truth,
             "final": final,
             "cnn": cnn_pred,
+            "final_source": (report.get("disease") or {}).get("source"),
+            "final_source_vlm": (report.get("disease") or {}).get("source") == "vlm",
             "agent_ok": final == truth,
             "cnn_ok": cnn_pred == truth,
+            "vlm_changed": final != cnn_pred,
+            "vlm_fixed": (cnn_pred != truth) and (final == truth),
+            "vlm_broke": (cnn_pred == truth) and (final != truth),
             "escalated": escalation_step is not None,
             "escalation_ok": escalation_ok,
             "needs_human": bool(report.get("needs_human")),
@@ -185,6 +190,9 @@ def build_report(result: Dict, args) -> str:
         f"| 升级成功率 | {_rate(rows, 'escalation_ok') * 100:.2f}% |",
         f"| needs_human 率 | {_rate(rows, 'needs_human') * 100:.2f}% |",
         f"| 证据核对通过率 | {_rate(rows, 'evidence_valid') * 100:.2f}% |",
+        f"| 最终结论来自 VLM | {_rate(rows, 'final_source_vlm') * 100:.2f}% |",
+        f"| VLM 改变 CNN 结论 | {sum(1 for r in rows if r['vlm_changed'])} "
+        f"（修正 {sum(1 for r in rows if r['vlm_fixed'])} / 改错 {sum(1 for r in rows if r['vlm_broke'])}） |",
         f"| 平均步数 | {avg('steps'):.1f} |",
         f"| 平均耗时 | {avg('latency_ms'):.0f} ms |",
         "",
@@ -206,9 +214,25 @@ def build_report(result: Dict, args) -> str:
         f"| 触发升级 | {len(esc)} | {_acc(esc, 'agent_ok') * 100:.2f}% | {_acc(esc, 'cnn_ok') * 100:.2f}% |",
         f"| 未触发升级 | {len(non_esc)} | {_acc(non_esc, 'agent_ok') * 100:.2f}% | {_acc(non_esc, 'cnn_ok') * 100:.2f}% |",
         "",
-        "> 未配置 VLM 时，触发升级的样本仍会回退到 CNN 结论，两个子集的差异只反映",
-        "> “哪些样本被仲裁规则判定为不确定”，不代表升级带来的提升。",
-        "",
+    ]
+    changed = sum(1 for r in rows if r["vlm_changed"])
+    fixed = sum(1 for r in rows if r["vlm_fixed"])
+    broke = sum(1 for r in rows if r["vlm_broke"])
+    if config.vlm_configured():
+        lines += [
+            "> 本次 VLM 已配置：触发升级的样本由 VLM 给出最终结论。",
+            f"> VLM 改变 CNN 结论 {changed} 张，其中修正 {fixed} 张、改错 {broke} 张。",
+            "> 两个子集的准确率差异即升级带来的实际影响，不依赖“应该会更好”的假设。",
+            "",
+        ]
+    else:
+        lines += [
+            "> 本次未配置 VLM：触发升级的样本会回退到 CNN 结论，两个子集的差异只反映",
+            "> “哪些样本被仲裁规则判定为不确定”，不代表升级带来的提升。",
+            "",
+        ]
+
+    lines += [
         "## 3. 逐类结果",
         "",
         "| 类别 | 样本 | Agent 准确率 | CNN 准确率 | 触发升级 |",

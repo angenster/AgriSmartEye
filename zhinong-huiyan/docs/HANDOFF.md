@@ -173,7 +173,7 @@ cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m unittest discover -s 
 | P0 | `reports/cnn_metrics.md` 产物 | ✅ 由 `training/make_cnn_metrics.py` 生成，含原始与生产推理路径两套口径 |
 | P1 | ReAct / 6 工具 / 双引擎仲裁 / 证据核对 / 成本落库 | ✅ |
 | P1 | SSE 流式接口 | ✅ `POST /api/v1/agent/diagnose/stream` |
-| P1 | Agent 级评测 | ✅ 96 张：Agent 94.79%、升级率 6.25%、needs_human 4.17%、证据核对 100%；无 VLM 密钥，相对 CNN 增益为 0（`ai-model/reports/agent_metrics.md`） |
+| P1 | Agent 级评测 | ✅ VLM 已接入并实测（DeepSeek）：96 张上 94.79–96.88%（三次运行），升级成功率 100%，证据核对 100%；升级子集 33–67%，波动大（`agent_metrics.md`，无 VLM 基线见 `agent_metrics_no_vlm.md`） |
 | P2 | 42 类语料 + 混合检索（Recall@5 > 0.8） | ⚠️ 检索达标；12 条可触达条目已做有出处的 AI 复核，仍待人工签字（`docs/corpus_ai_review.md`） |
 | P2 | 农药登记表 + `query_pesticide` | ✅ 表、导入管道、检索已就绪；**产品边界：无已校核数据，不提供化学用药** |
 | P3 | 飞轮最小闭环 | ✅ |
@@ -189,8 +189,9 @@ cd zhinong-huiyan/backend && ./.venv/Scripts/python.exe -m unittest discover -s 
 仍在方案范围内的缺口：
 
 - **RAG 语料人工签字**（需要植保人员）；
-- **VLM 升级路径未实测**：没有 `VLM_API_KEY`，升级尝试全部失败。评测显示被仲裁规则
-  挑出的 6 张难例准确率只有 33%，这正是双引擎该发挥作用的地方，但没有密钥无法验证增益；
+- **升级样本太少，增益未定论**：每轮只有 6 张触发升级，三次运行的 Agent 准确率在
+  94.79–96.88% 之间波动（升级子集 33–67%）。VLM 确实能修正部分难例（最好一轮修正 2 张、
+  改错 0 张），但样本量不足以支撑“稳定 +3pt”的结论，需要更大的难例集；
 - **`pest_info` 表 0 行**：42 条语料直接建在 `knowledge_chunks`，功能等价但与该表无关。
 
 ## 8. 环境注意
